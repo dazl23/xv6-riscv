@@ -1,3 +1,4 @@
+
 // Saved registers for kernel context switches.
 struct context {
   uint64 ra;
@@ -94,6 +95,9 @@ struct proc {
 
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process
+
+  //
+  uint8 tickets;
 
   // these are private to the process, so p->lock need not be held.
   uint64 kstack;               // Virtual address of kernel stack

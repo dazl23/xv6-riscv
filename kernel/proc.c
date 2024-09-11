@@ -5,10 +5,15 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "random.h"
+
+#define PROC_INITIAL_TICKETS 1
 
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
+
+static uint32 max_tickets = 0;
 
 struct proc *initproc;
 
@@ -53,6 +58,7 @@ procinit(void)
   initlock(&wait_lock, "wait_lock");
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
+      p->tickets = 0;
       p->state = UNUSED;
       p->kstack = KSTACK((int) (p - proc));
   }
@@ -248,6 +254,8 @@ userinit(void)
 
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
+  p->tickets = PROC_INITIAL_TICKETS;
+  max_tickets += PROC_INITIAL_TICKETS;
 
   p->state = RUNNABLE;
 
@@ -319,6 +327,8 @@ fork(void)
   release(&wait_lock);
 
   acquire(&np->lock);
+  np->tickets = p->tickets;
+  max_tickets += np->tickets;
   np->state = RUNNABLE;
   release(&np->lock);
 
@@ -433,7 +443,6 @@ wait(uint64 addr)
     sleep(p, &wait_lock);  //DOC: wait-sleep
   }
 }
-
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -454,10 +463,16 @@ scheduler(void)
     // processes are waiting.
     intr_on();
 
+
     int found = 0;
+    uint32 random_number = 0;
+    uint32 counter = 0;
+
+    random_number = random() % max_tickets;
+
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
-      if(p->state == RUNNABLE) {
+      if (p->state == RUNNABLE && ((counter += p->tickets) > random_number)) {
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
