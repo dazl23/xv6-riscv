@@ -2,6 +2,8 @@ struct stat;
 
 // system calls
 int fork(void);
+int settickets(int number);
+int getpinfo(struct pinfo* p);
 int exit(int) __attribute__((noreturn));
 int wait(int*);
 int pipe(int*);

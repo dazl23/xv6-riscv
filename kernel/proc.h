@@ -96,8 +96,9 @@ struct proc {
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process
 
-  //
+  // Scheduling info
   uint8 tickets;
+  uint64 ticks;
 
   // these are private to the process, so p->lock need not be held.
   uint64 kstack;               // Virtual address of kernel stack

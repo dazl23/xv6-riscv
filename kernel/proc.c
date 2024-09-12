@@ -5,7 +5,9 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "pstat.h"
 #include "random.h"
+#include "fcntl.h"
 
 #define PROC_INITIAL_TICKETS 1
 
@@ -59,6 +61,7 @@ procinit(void)
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->tickets = 0;
+      p->ticks = 0;
       p->state = UNUSED;
       p->kstack = KSTACK((int) (p - proc));
   }
@@ -169,6 +172,8 @@ freeproc(struct proc *p)
   p->pagetable = 0;
   p->sz = 0;
   p->pid = 0;
+  p->tickets = 0;
+  p->ticks = 0;
   p->parent = 0;
   p->name[0] = 0;
   p->chan = 0;
@@ -255,7 +260,7 @@ userinit(void)
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
   p->tickets = PROC_INITIAL_TICKETS;
-  max_tickets += PROC_INITIAL_TICKETS;
+  max_tickets = PROC_INITIAL_TICKETS;
 
   p->state = RUNNABLE;
 
@@ -327,6 +332,7 @@ fork(void)
   release(&wait_lock);
 
   acquire(&np->lock);
+  np->ticks = 0;
   np->tickets = p->tickets;
   max_tickets += np->tickets;
   np->state = RUNNABLE;
@@ -479,6 +485,7 @@ scheduler(void)
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
+        p->ticks += 1;
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
@@ -708,3 +715,46 @@ procdump(void)
     printf("\n");
   }
 }
+
+int settickets(int number) {
+  if (number < 1) {
+    return -1;
+  }
+  struct proc* p = myproc();
+  acquire(&p->lock);
+  max_tickets += (number - p->tickets);
+  p->tickets = number;
+  release(&p->lock);
+  return 0;
+}
+
+uint64 sys_settickets(void) {
+  int number = 0;
+  argint(0, &number);
+  return settickets(number);
+}
+
+
+int getpinfo(struct pstat* st) {
+  if (!st) {
+    return -1;
+  }
+  for (int i = 0; i < NPROC; ++i) {
+    st->pid[i] = proc[i].pid;
+    st->inuse[i] = proc[i].state == RUNNING;
+    st->tickets[i] = proc[i].tickets;
+    st->ticks[i] = proc[i].ticks;
+  }
+  //argraw
+  return 0;
+}
+
+uint64 sys_getpinfo(void) {
+  uint64* p = 0;
+  //acquire(&p->lock);
+  if (fetchaddr(0, p) < 0) {
+    return 0;
+  }
+  return getpinfo((struct pstat*)p);
+}
+
