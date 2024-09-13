@@ -16,7 +16,7 @@
 #include "file.h"
 #include "fcntl.h"
 
-int sys_read_counter = 0;
+static int sys_read_counter = 0;
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.

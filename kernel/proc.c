@@ -735,26 +735,27 @@ uint64 sys_settickets(void) {
 }
 
 
-int getpinfo(struct pstat* st) {
-  if (!st) {
-    return -1;
-  }
+int getpstatinfo(uint64 addr) {
+  struct pstat st = { 0 };
+  struct proc* p = { 0 };
+  struct proc* curr_proc = myproc();
   for (int i = 0; i < NPROC; ++i) {
-    st->pid[i] = proc[i].pid;
-    st->inuse[i] = proc[i].state == RUNNING;
-    st->tickets[i] = proc[i].tickets;
-    st->ticks[i] = proc[i].ticks;
+    p = &proc[i];
+    acquire(&p->lock);
+    st.pid[i] = p->pid;
+    st.inuse[i] = p->state == RUNNING;
+    st.tickets[i] = p->tickets;
+    st.ticks[i] = p->ticks;
+    release(&p->lock);
   }
-  //argraw
+  if (copyout(curr_proc->pagetable, addr, (char*)&st, sizeof(st)) < 0)
+    return -1;
   return 0;
 }
 
 uint64 sys_getpinfo(void) {
-  uint64* p = 0;
-  //acquire(&p->lock);
-  if (fetchaddr(0, p) < 0) {
-    return 0;
-  }
-  return getpinfo((struct pstat*)p);
+  uint64 addr = 0;
+  argaddr(0, &addr);
+  return getpstatinfo(addr);
 }
 
