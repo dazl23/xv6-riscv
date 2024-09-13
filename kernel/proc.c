@@ -743,7 +743,7 @@ int getpstatinfo(uint64 addr) {
     p = &proc[i];
     acquire(&p->lock);
     st.pid[i] = p->pid;
-    st.inuse[i] = p->state == RUNNING;
+    st.inuse[i] = p->state != UNUSED;
     st.tickets[i] = p->tickets;
     st.ticks[i] = p->ticks;
     release(&p->lock);
